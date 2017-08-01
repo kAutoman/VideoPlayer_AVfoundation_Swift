@@ -1,35 +1,95 @@
-# git-gen
+# AutoVideoPlayer
+Play/pause videos automatically in UITableview when an UITableViewCell is in focus, videos can be easily embedded in any UITableViewCell subclass.
+Can be easily extended to support UICollectionView
 
-## Guide
-1. Create a new repo.
-2. Plz download contribute.py file in your local machine.
-3. Run downloaded file with below command
+* Easily implement video player in any UITableView subclass
+* Automatic video play when video view is visible and option to easily pause/play any video
+* Mute/Unmute videos
+* Videos are cached in memory and will be removed when there is memory pressure
+* The scroll of UITableView is super smooth since video assets are downloaded on background thread and played only when assets are      completely downloaded ensuring the main thead is never blocked
+* Option to provide different bit rate for videos
+* Works when the app comes again from background
 
-```bash
-python contribute.py --repository=git@github.com:YOUR_USERNAME/YOUR_REPO_NAME.git
+It can also be used to play videos in any subclass of UIView.
+
+## Demo
+![](https://i.imgur.com/Q4ElIJt.gif)
+
+
+## Download
+Drag and drop the VideoPlayLibrary folder in your project
+## Usage
+
+#### Adopt ASAutoPlayVideoLayerContainer protocol in your UITableviewCell subclass like below.
+
 ```
-## There are some customizations with command
-
-```bash
--da or --days_ago
--nw or --no_weekends
--md or --max_commits
--fr or --frequency
--r or --repository
--un or --user_name
--ue or --user_email
+var videoLayer: AVPlayerLayer = AVPlayerLayer()
+    
+var videoURL: String? {
+    didSet {
+        if let videoURL = videoURL {
+            ASVideoPlayerController.sharedVideoPlayer.setupVideoFor(url: videoURL)
+        }
+        videoLayer.isHidden = videoURL == nil
+    }
+}
+```
+Implement following method to return the visible height of the UITableViewCell
+```
+func visibleVideoHeight() -> CGFloat {
+  //return visible height of the Video Player layer
+}
 ```
 
-## Troubleshooting
-["Help, I keep getting a 'Permission Denied (publickey)' error when I push!"](https://gist.github.com/adamjohnson/5682757)
+#### ViewController Code
 
-This means, on your local machine, you haven't made any SSH keys. Not to worry. Here's how to fix:
+Put following code in viewDidLoad
+```
+NotificationCenter.default.addObserver(self,
+                                       selector: #selector(self.appEnteredFromBackground),
+                                       name: NSNotification.Name.UIApplicationWillEnterForeground, object: nil)
+```
 
-Open git bash (Use the Windows search. To find it, type "git bash") or the Mac Terminal. Pro Tip: You can use any *nix based command prompt (but not the default Windows Command Prompt!)
-Type cd ~/.ssh. This will take you to the root directory for Git (Likely C:\Users\[YOUR-USER-NAME]\.ssh\ on Windows)
-Within the .ssh folder, there should be these two files: id_rsa and id_rsa.pub. These are the files that tell your computer how to communicate with GitHub, BitBucket, or any other Git based service. Type ls to see a directory listing. If those two files don't show up, proceed to the next step. NOTE: Your SSH keys must be named id_rsa and id_rsa.pub in order for Git, GitHub, and BitBucket to recognize them by default.
-To create the SSH keys, type ssh-keygen -t rsa -C "your_email@example.com". This will create both id_rsa and id_rsa.pub files.
-Now, go and open id_rsa.pub in your favorite text editor (you can do this via Windows Explorer or the OSX Finder if you like, typing open . will open the folder).
-Copy the contents--exactly as it appears, with no extra spaces or lines--of id_rsa.pub and paste it into GitHub and/or BitBucket under the Account Settings > SSH Keys. NOTE: I like to give the SSH key a descriptive name, usually with the name of the workstation I'm on along with the date.
-Now that you've added your public key to Github and/or BitBucket, try to git push again and see if it works. It should!
-More help available from GitHub on creating SSH Keys and BitBucket Help.
+Add following code to play/pause when view appears/disappears
+```
+override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+    pausePlayeVideos()
+}
+```
+Add following methods
+
+```
+@objc func appEnteredFromBackground() {
+    ASVideoPlayerController.sharedVideoPlayer.pausePlayeVideosFor(tableView: tableView, appEnteredFromBackground: true)
+}
+
+func pausePlayeVideos(){
+    ASVideoPlayerController.sharedVideoPlayer.pausePlayeVideosFor(tableView: tableView)
+}
+```
+
+Add following code in UITableView delegate and datasource methods
+```
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    //if cell adopts ASAutoPlayVideoLayerContainer protocol then
+    //set videoURL if you want to show video or else nil
+}
+
+func tableView(_ tableView: UITableView, didEndDisplaying cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+    if let videoCell = cell as? ASAutoPlayVideoLayerContainer, videoCell.videoURL != nil {
+        ASVideoPlayerController.sharedVideoPlayer.removeLayerFor(cell: videoCell)
+    }
+}
+```
+Add following code to pause/play videos when scroll stops
+```
+func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    if !decelerate {
+        pausePlayeVideos()
+    }
+}
+func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+    pausePlayeVideos()
+}
+```
